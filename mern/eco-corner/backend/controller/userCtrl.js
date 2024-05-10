@@ -33,7 +33,7 @@ const loginUser = asyncHandler(async (req, res) => {
   if (findUser && (await findUser.isPasswordMatched(password))) {
     res.json({
       _id: findUser?._id,
-      firstname:findUser?.firstname,
+      firstname: findUser?.firstname,
       lastname: findUser?.lastname,
       email: findUser?.email,
       mobile: findUser?.mobile,
@@ -43,5 +43,67 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new Error("Invalid credentials");
   }
 });
+//update a user
 
-module.exports = { createUser, loginUser };
+const updateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  try {
+    const updateUser=await User.findByIdAndUpdate(id, {
+      firstname: req?.body?.firstname,
+      lastname: req?.body?.lastname,
+      email: req?.body?.email,
+      mobile: req?.body?.mobile
+    },
+    {
+      new: true
+    })
+
+    res.json(updateUser);
+    
+  } catch (error) {
+    throw new Error(error)
+  }
+});
+//get all users
+
+const getAllUsers = asyncHandler(async (req, res) => {
+  try {
+    const getUsers = await User.find();
+    res.json(getUsers);
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+//get a single user
+
+const getUser = asyncHandler(async (req, res) => {
+  console.log(req.params);
+  const { id } = req.params;
+
+  try {
+    const getUser = await User.findById(id);
+    res.json({
+      getUser,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+const deleteUser = asyncHandler(async (req, res) => {
+  console.log(req.params);
+  const { id } = req.params;
+
+  try {
+    const deleteUser = await User.findByIdAndDelete(id);
+
+    res.json({
+      deleteUser,
+    });
+  } catch (error) {
+    throw new Error(error);
+  }
+});
+
+module.exports = { createUser, loginUser, getAllUsers, getUser, deleteUser, updateUser };
