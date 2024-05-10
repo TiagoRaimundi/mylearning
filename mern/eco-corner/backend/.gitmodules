@@ -1,0 +1,3 @@
+[submodule "PodifyFrontTeste"]
+	path = PodifyFrontTeste
+	url = https://github.com/TiagoRaimundi/PodifyFront.git
