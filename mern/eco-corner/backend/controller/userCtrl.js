@@ -62,30 +62,36 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 });
 
-//handle refresh token
-const handleRefreshToken = asyncHandler(async(req, res) => {
-  const cookie = req.cookies;
-  console.log(cookie)
-  if(!cookie?.refreshToken) throw new Error("No Refresh Token in Cookies");
-  const refreshToken = cookie.refreshToken;
-  const user = await User.findOne({refreshToken});
-  if(!user){
-    throw new Error('No refresh token present in db or not matched')
+const handleRefreshToken = asyncHandler(async (req, res) => {
+  const cookies = req.cookies;
+  if (!cookies?.refreshToken) {
+    return res.status(401).json({ message: "No Refresh Token in Cookies" });
   }
-  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
-    if(err || user.id !== decoded.id){
-      throw new Error('There is something wrong with refresh token');
+
+  const refreshToken = cookies.refreshToken;
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    return res.status(401).json({ message: 'No user found with this refresh token' });
+  }
+
+  try {
+    const decoded = await jwt.verify(refreshToken, process.env.JWT_SECRET);
+    if (user._id.toString() !== decoded.id) { // Ensure your ID is correctly compared
+      return res.status(401).json({ message: 'Invalid refresh token' });
     }
-    const accessToken = generateToken(user?._id)
-    res.json({accessToken})
-  })
-})
+
+    const accessToken = generateToken(user._id); // Assuming generateToken is defined correctly
+    res.json({ accessToken });
+  } catch (err) {
+    res.status(401).json({ message: 'There is something wrong with the refresh token', error: err.message });
+  }
+});
 
 //logout functionality
 const logout = asyncHandler(async(req, res) => {
   const cookies = req.cookies;
 
-  // Check if the refresh token exists in cookies
+  // Check if the refresh token exists in cookies 
   if (!cookies?.refreshToken) {
     return res.status(400).json({ message: "No Refresh Token in Cookies!" }); // Bad request as no token found
   }
@@ -105,7 +111,7 @@ const logout = asyncHandler(async(req, res) => {
   }
 
   // If user exists, remove the refreshToken from the user and database
-  await User.findByIdAndUpdate(user._id, { $unset: { refreshToken: "" } });
+  await User.findByIdAndUpdate(refreshToken._id, { $unset: { refreshToken: "" } });
 
   // Clear the refresh token cookie
   res.clearCookie('refreshToken', {
@@ -114,7 +120,7 @@ const logout = asyncHandler(async(req, res) => {
     sameSite: 'none' // Set accordingly based on your deployment environment
   });
 
-
+  
   return res.sendStatus(204);
 });
 
