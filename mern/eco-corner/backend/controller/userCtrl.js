@@ -4,6 +4,7 @@ const asyncHandler = require("express-async-handler");
 const validateMongoDbId = require("../utils/validateMongoDbId");
 const { generateRefreshToken } = require("../config/refreshToken");
 generateRefreshToken;
+const jwt = require('jsonwebtoken')
 
 const createUser = asyncHandler(async (req, res) => {
   const { email } = req.body;
@@ -65,9 +66,59 @@ const loginUser = asyncHandler(async (req, res) => {
 const handleRefreshToken = asyncHandler(async(req, res) => {
   const cookie = req.cookies;
   console.log(cookie)
+  if(!cookie?.refreshToken) throw new Error("No Refresh Token in Cookies");
+  const refreshToken = cookie.refreshToken;
+  const user = await User.findOne({refreshToken});
+  if(!user){
+    throw new Error('No refresh token present in db or not matched')
+  }
+  jwt.verify(refreshToken, process.env.JWT_SECRET, (err, decoded) => {
+    if(err || user.id !== decoded.id){
+      throw new Error('There is something wrong with refresh token');
+    }
+    const accessToken = generateToken(user?._id)
+    res.json({accessToken})
+  })
 })
-//update a user
 
+//logout functionality
+const logout = asyncHandler(async(req, res) => {
+  const cookies = req.cookies;
+
+  // Check if the refresh token exists in cookies
+  if (!cookies?.refreshToken) {
+    return res.status(400).json({ message: "No Refresh Token in Cookies!" }); // Bad request as no token found
+  }
+
+  const refreshToken = cookies.refreshToken;
+
+  // Find the user with this refresh token
+  const user = await User.findOne({ refreshToken });
+  if (!user) {
+    // If no user is found with the refresh token, clear the cookie and return no content
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true, // Ensure you set 'secure: true' only if you are using HTTPS
+      sameSite: 'none' // Necessary if your frontend and backend aren't served from the same domain and using HTTPS
+    });
+    return res.sendStatus(204); // Properly send the response
+  }
+
+  // If user exists, remove the refreshToken from the user and database
+  await User.findByIdAndUpdate(user._id, { $unset: { refreshToken: "" } });
+
+  // Clear the refresh token cookie
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: true, // Ensure 'secure' is used in production with HTTPS
+    sameSite: 'none' // Set accordingly based on your deployment environment
+  });
+
+
+  return res.sendStatus(204);
+});
+
+//update a user
 const updateUser = asyncHandler(async (req, res) => {
   const { _id } = req.user;
   validateMongoDbId(id);
@@ -182,5 +233,6 @@ module.exports = {
   updateUser,
   blockUser,
   unblockUser,
-  handleRefreshToken
+  handleRefreshToken,
+  logout
 };
